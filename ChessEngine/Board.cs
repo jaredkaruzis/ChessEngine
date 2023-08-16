@@ -75,7 +75,7 @@ public class Board {
 
         // If we have two squares, recheck that the squares represent a valid move
         if (move.Origin != null && move.Destination != null) {
-            if (move.Origin.HasPiece && move.Origin.Piece.Moves.Contains(move.Destination)) {
+            if (move.Origin.HasPiece && move.Origin.Piece.Color == CurrentTurn && move.Origin.Piece.Moves.Contains(move.Destination)) {
                 ExecuteMove(move);
                 return true;
             }
