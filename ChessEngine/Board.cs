@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace ChessEngine; 
 
@@ -103,7 +103,7 @@ public class Board {
     /// <returns>
     /// If the move is executed, return true. Else, return false.
     /// </returns>
-    public bool SubmitMove(string origin, string destination, PieceType promotionPieceType = PieceType.Queen) {
+    public bool SubmitMove(string origin, string destination, PieceType promotionPieceType = PieceType.Empty) {
         return SubmitMove(new Move(origin, destination, promotionPieceType));
     }
 
@@ -116,7 +116,7 @@ public class Board {
     /// <returns>
     /// If the move is executed, return true. Else, return false.
     /// </returns>
-    public bool SubmitMove(Square origin, Square destination, PieceType promotionPieceType = PieceType.Queen) {
+    public bool SubmitMove(Square origin, Square destination, PieceType promotionPieceType = PieceType.Empty) {
         return SubmitMove(new Move(origin, destination, promotionPieceType));
     }
 
@@ -158,11 +158,9 @@ public class Board {
             rookSquare.Piece = null;
         }
 
-        origin.Piece.Move(destination);
-
         // Handle Enpassant (capture pawn or clear flags)
         if (EnpassantSquare != null) {
-            if (destination.EnpassantFlag) {
+            if (destination.EnpassantFlag && origin.Piece.IsPawn) {
                 EnpassantPawn.Square.Piece = null;
                 Pieces.Remove(EnpassantPawn);
             }
@@ -170,6 +168,8 @@ public class Board {
             EnpassantSquare = null;
             EnpassantPawn = null;
         }
+
+        origin.Piece.Move(destination);
 
         // Handle double pawn moves (store piece and flag square for enpassant)
         if (doublePawnMove) {
@@ -342,6 +342,7 @@ public class Board {
     }
 
     public static string DefaultBoard = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    public static string EmptyBoard = "8/8/8/8/8/8/8/8 w - - 0 1";
 
     // Convert Board State to FEN
     public string ExportFEN() {
@@ -456,12 +457,18 @@ public class Board {
     // Convert Board State to PGN
     public string ExportPGN() {
         var sb = new StringBuilder();
-
         if (Tags.Count > 0) {
             foreach(var tag in Tags) {
                 sb.AppendLine($"[{tag.Key} {tag.Value}]");
             }
             sb.AppendLine();
+        }
+        for (int i = 0; i < MoveHistory.Count; i++) {
+            if (i % 2 == 0) {
+                sb.Append($"{(i / 2) + 1}. ");
+            }
+            sb.Append(MoveHistory[i].AlgebraicNotation);
+            sb.Append(" ");
         }
         return sb.ToString();
     }
@@ -643,7 +650,7 @@ public class Board {
         }
         
         var moveTokens = gameMoves.Split(' ');
-        var parsingComment = false;         // ignore comments for now, it will break if you use a semicolon like a mongoloid
+        var parsingComment = false;         // ignore comments for now, it will break if you use a semicolon
         foreach (var t in moveTokens) {
             
             if (t.Contains('{')) {          
@@ -851,6 +858,6 @@ public class Board {
     }
 
     public override string ToString() {
-        return ExportFEN();
+        return ExportPGN();
     }
 }
