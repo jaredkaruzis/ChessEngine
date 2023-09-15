@@ -1,8 +1,8 @@
-﻿namespace ChessEngine; 
+namespace ChessEngine; 
 
 public class King : Piece {
 
-    public List<int[]> _movements = new List<int[]>() {
+    private List<int[]> _movements = new List<int[]>() {
         new int[2] { 1, 1 },    // Bishop move vectors
         new int[2] { -1, 1 },
         new int[2] { 1, -1 },

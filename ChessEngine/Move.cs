@@ -1,4 +1,4 @@
-﻿namespace ChessEngine; 
+namespace ChessEngine; 
 
 public class Move {
 
@@ -57,17 +57,12 @@ public class Move {
 
         var columnAmbiguity = false;
         var rowAmbiguity = false;
-
-        foreach (var piece in b.Pieces) {
+        foreach (var piece in b.Pieces.Where(piece => piece.Type == Origin.Piece.Type)) {
             if (piece == Origin.Piece) continue;
             foreach (var move in piece.Moves) {
                 if (move == Destination && piece.Type == Origin.Piece.Type) {
-                    if (Origin.X == piece.X) {
-                        columnAmbiguity = true;
-                    }
-                    if (Origin.Y == piece.Y) {
-                        rowAmbiguity = true;
-                    }
+                    if (Origin.X == piece.X) columnAmbiguity = true;
+                    if (Origin.Y == piece.Y) rowAmbiguity = true;
                 }
             }
         }
