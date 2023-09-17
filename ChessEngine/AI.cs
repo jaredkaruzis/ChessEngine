@@ -1,4 +1,8 @@
-﻿namespace ChessEngine;
+﻿using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.InteropServices;
+
+namespace ChessEngine;
 
 public static class AI {
     public enum LogicType {
@@ -35,48 +39,28 @@ public static class AI {
     //          return value
     public static float Minimax(Board b, int depth, float alpha, float beta, Color player) {
         var isMaxPlayer = b.CurrentTurn == player;
-
-        if (b.GameOver) {
-            if (b.Winner == player) return float.PositiveInfinity;
-            if (b.Winner == Color.NoColor) return 0;
-            else return float.NegativeInfinity;
-        }
-        if (depth == 0) return RateBoardState(b, player);
+        if (depth == 0 || b.GameOver) return RateBoardState(b, player);
 
         if (isMaxPlayer) {
             var val = float.NegativeInfinity;
-
-            foreach (var piece in b.Pieces.Where(x => x.Color == b.CurrentTurn)) {
-                var possMoves = piece.Moves;
-                foreach (var move in possMoves) {
-                    var testBoard = DeepClone(b);
-                    var originSquare = testBoard[piece.Square.X, piece.Square.Y];
-                    var destinationSquare = testBoard[move.X, move.Y];
-                    testBoard.SubmitMove(originSquare, destinationSquare, PieceType.Queen);
-                    val = Math.Max(Minimax(testBoard, depth - 1, alpha, beta, player), val);
-                    if (val >= beta) {
-                        break;
-                    }
-                    alpha = Math.Max(alpha, val);
+            foreach (var move in b.GetMoves()) {
+                var testBoard = GenerateMoveBoard(b, new Move() { origin = move.Origin, destination = move.Destination });
+                val = Math.Max(Minimax(testBoard, depth - 1, alpha, beta, player), val);
+                alpha = Math.Max(alpha, val);
+                if (val >= beta) {
+                    break;
                 }
             }
             return val;
         }
         else { // isMinPlayer
             var val = float.PositiveInfinity;
-
-            foreach (var piece in b.Pieces.Where(x => x.Color == b.CurrentTurn)) {
-                var possMoves = piece.Moves;
-                foreach (var move in possMoves) {
-                    var testBoard = DeepClone(b);
-                    var originSquare = testBoard[piece.Square.X, piece.Square.Y];
-                    var destinationSquare = testBoard[move.X, move.Y];
-                    testBoard.SubmitMove(originSquare, destinationSquare, PieceType.Queen);
-                    val = Math.Min(Minimax(testBoard, depth - 1, alpha, beta, player), val);
-                    if (val <= alpha) {
-                        break;
-                    }
-                    beta = Math.Min(beta, val);
+            foreach (var move in b.GetMoves()) {
+                var testBoard = GenerateMoveBoard(b, new Move() { origin = move.Origin, destination = move.Destination });
+                val = Math.Min(Minimax(testBoard, depth - 1, alpha, beta, player), val);
+                beta = Math.Min(beta, val);
+                if (val <= alpha) {
+                    break;
                 }
             }
             return val;
@@ -95,10 +79,7 @@ public static class AI {
         }
 
         Parallel.ForEach(moves, move => {
-            var testBoard = DeepClone(b);
-            var originSquare = testBoard[move.origin.X, move.origin.Y];
-            var destinationSquare = testBoard[move.destination.X, move.destination.Y];
-            testBoard.SubmitMove(originSquare, destinationSquare, PieceType.Queen);
+            var testBoard = GenerateMoveBoard(b, move);
             move.value = Minimax(testBoard, depth, float.NegativeInfinity, float.PositiveInfinity, b.CurrentTurn);
         });
 
@@ -107,59 +88,41 @@ public static class AI {
         return new Square[2] { bestMove.origin, bestMove.destination };
     }
 
+    private static Board GenerateMoveBoard(Board b, Move m) {
+        var testBoard = DeepClone(b);
+        var originSquare = testBoard[m.origin.X, m.origin.Y];
+        var destinationSquare = testBoard[m.destination.X, m.destination.Y];
+        testBoard.SubmitMove(originSquare, destinationSquare, PieceType.Queen);
+        return testBoard;
+    }
 
-    // TODO: Refine heuristic algorithm
-    // Positive = WHITE, Negative = BLACK
     public static float RateBoardState(Board b, Color c) {
-        var score = 0;
+        if (b.GameOver) {
+            if (b.Winner == c) return float.PositiveInfinity;
+            if (b.Winner == Color.NoColor) return 0;
+            else return float.NegativeInfinity;
+        }
+        float score = 0;
 
         foreach (var p in b.Pieces) {
             var side = p.Color == c ? 1 : -1;
-            switch (p.Type) {
-                case PieceType.Pawn:
-                    score += 30 * side;
-                    break;
-                case PieceType.Bishop:
-                    score += 60 * side;
-                    break;
-                case PieceType.Knight:
-                    score += 60 * side;
-                    break;
-                case PieceType.Rook:
-                    score += 100 * side;
-                    break;
-                case PieceType.Queen:
-                    score += 900 * side;
-                    break;
-            }
-            var squaresAttacked = p.Moves.Count;
+            var piece = PieceValues[p.Type];
+            score += (piece * side * 100);
 
-            var moves = p.Moves;
-            foreach (var move in moves) {
-                if (move.HasPiece) {
-                    switch (move.Piece.Type) {
-                        case PieceType.Pawn:
-                            score += 1 * side;
-                            break;
-                        case PieceType.Bishop:
-                            score += 5 * side;
-                            break;
-                        case PieceType.Knight:
-                            score += 5 * side;
-                            break;
-                        case PieceType.Rook:
-                            score += 25 * side;
-                            break;
-                        case PieceType.Queen:
-                            score += 45 * side;
-                            break;
-                        case PieceType.King:
-                            score += 50 * side;
-                            break;
-                    }
-                }
+            var moves = p.GeneratePossibleMoves(b);
+
+            if (p.IsPawn) {
+                if (!p.HasMoved) score -= 5;
             }
-            score += squaresAttacked * side;
+            if (p.Type != PieceType.Queen && p.X > 2 && p.X < 5 && p.Y > 2 && p.Y < 5) score += 10;
+
+            foreach (var move in moves) {
+                if (move.X > 2 && move.X < 5 && move.Y > 2 && move.Y < 5) {
+                    score += 10;
+                }
+                var targetPiece = move.HasPiece ? PieceValues[move.Piece.Type] : 1;
+                score += (targetPiece * side * piece);
+            }
         }
         return score;
     }
@@ -173,4 +136,14 @@ public static class AI {
         public Square origin;
         public float value;
     }
+
+    private static readonly Dictionary<PieceType, float> PieceValues = new Dictionary<PieceType, float> {
+        { PieceType.Empty, 0 },
+        { PieceType.Pawn, 1 },
+        { PieceType.Bishop, 3 },
+        { PieceType.Knight, 3 },
+        { PieceType.Rook, 5 },
+        { PieceType.Queen, 9 },
+        { PieceType.King, 0 },
+    };
 }
