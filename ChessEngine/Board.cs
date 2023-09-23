@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 
 namespace ChessEngine; 
 
@@ -639,7 +640,7 @@ public class Board {
 
     // Load Board State from PGN
     private void LoadFromPGN(string pgn) {
-        var index = pgn.Contains(']') ? pgn.LastIndexOf(']') : 0;
+        var index = pgn.Contains(']') ? pgn.LastIndexOf(']') + 1 : 0;
 
         var gameMoves = pgn.Substring(index).Trim();
         var tags = pgn.Substring(0, index).Trim();
@@ -652,10 +653,12 @@ public class Board {
             Tags.Add(tagTitle, tagDescription);
         }
         
+        gameMoves = gameMoves.Replace("\r\n", " ");
+
         var moveTokens = gameMoves.Split(' ');
         var parsingComment = false;         // ignore comments for now, it will break if you use a semicolon
         foreach (var t in moveTokens) {
-            
+
             if (t.Contains('{')) {          
                 parsingComment = true;  // Comment starting 
             }
@@ -669,7 +672,7 @@ public class Board {
                 continue;
             }
 
-            if (t.Contains("1-0") || t.Contains("0-1") || t.Contains("1/2-1/2")) {
+            if (t.Contains(" ") || t.Contains("1-0") || t.Contains("0-1") || t.Contains("1/2-1/2")) {
                 continue;               // this is just the result we can ignore this, i think we can figure it out lol
             }
 
